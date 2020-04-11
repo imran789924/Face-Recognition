@@ -144,9 +144,9 @@ def predict(width, height, confidences, boxes, prob_threshold, iou_threshold=0.5
 
 
 # load the model, create runtime session & get input variable name
-onnx_model = onnx.load('/home/imran/Machine Learning/Face Recognition/ultra_light_640.onnx')
+onnx_model = onnx.load('/home/imran/PROGRAMS/Machine Learning/Real Time FR/ultra_light_640.onnx')
 predictor = prepare(onnx_model)
-ort_session = ort.InferenceSession('/home/imran/Machine Learning/Face Recognition/ultra_light_640.onnx')
+ort_session = ort.InferenceSession('/home/imran/PROGRAMS/Machine Learning/Real Time FR/ultra_light_640.onnx')
 input_name = ort_session.get_inputs()[0].name
 
 
@@ -162,12 +162,13 @@ images = []
 names = []
 
 
-shape_predictor = dlib.shape_predictor('/home/imran/Machine Learning/Face Recognition/shape_predictor_68_face_landmarks.dat')
+shape_predictor = dlib.shape_predictor('/home/imran/PROGRAMS/Machine Learning/Real Time FR/shape_predictor_68_face_landmarks.dat')
 fa = face_utils.facealigner.FaceAligner(shape_predictor, desiredFaceWidth=112, desiredLeftEye=(0.3, 0.3))
 
 
 
-
+#comment this whole section if photos are provided
+"""
 for label in dirs:
     for i, fn in enumerate(os.listdir(os.path.join(TRAINING_BASE, label))):
         print(f"start collecting faces from {label}'s data")
@@ -210,12 +211,41 @@ for label in dirs:
             # if video end
             if frame_count == cap.get(cv2.CAP_PROP_FRAME_COUNT):
                 break
+"""
 
 
+from PIL import Image
+import glob
+for filename in glob.glob('faces/tmp/*jpg'):
+    im = cv2.imread(filename, cv2.IMREAD_COLOR)
+    
+    
+    
+    h, w, _ = im.shape
+    img = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+    img = cv2.resize(img, (640, 480))
+    img_mean = np.array([127, 127, 127])
+    img = (img - img_mean) / 128
+    img = np.transpose(img, [2, 0, 1])
+    img = np.expand_dims(img, axis=0)
+    img = img.astype(np.float32)
 
+    confidences, boxes = ort_session.run(None, {input_name: img})
+    boxes, labels, probs = predict(w, h, confidences, boxes, 0.7)
+    
+    x1, y1, x2, y2 = boxes[0,:]
+    
+    gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+    # align and resize
+    aligned_face = fa.align(im, gray, dlib.rectangle(left = x1, top=y1, right=x2, bottom=y2))
+    aligned_face = cv2.resize(aligned_face, (112,112))
+    
+    aligned_face = aligned_face - 127.5
+    aligned_face = aligned_face * 0.0078125
+                    
+    images.append(aligned_face)
 
-
-
+names.extend(['anik','anik','anik','anik','anik','anik','anik','anik','anik',  'araf','araf','araf','araf','araf','araf','araf','araf','araf', 'imran','imran','imran','imran','imran','imran','imran','imran','imran'])
 
 
 
@@ -238,8 +268,8 @@ sess = tf.Session()
 with tf.Graph().as_default():
     with sess:
         print("loading checkpoint ...")
-        saver = tf.train.import_meta_graph('/home/imran/Machine Learning/Face Recognition/mfn.ckpt.meta')
-        saver.restore(sess, '/home/imran/Machine Learning/Face Recognition/mfn.ckpt')
+        saver = tf.train.import_meta_graph('/home/imran/PROGRAMS/Machine Learning/Real Time FR/mfn.ckpt.meta')
+        saver.restore(sess, '/home/imran/PROGRAMS/Machine Learning/Real Time FR/mfn.ckpt')
         
         images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
         embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
@@ -268,12 +298,12 @@ with tf.Graph().as_default():
         
         
         
-        from PIL import Image
+        """from PIL import Image
         import glob
         faces_l = list()
         for filename in glob.glob('faces/tmp/*jpg'):
             im = cv2.imread(filename, cv2.IMREAD_COLOR)
-            faces_l.append(im)
+            faces_l.append(im)"""
         
         video_capture = cv2.VideoCapture(0)
         
@@ -294,6 +324,7 @@ with tf.Graph().as_default():
             boxes, labels, probs = predict(w, h, confidences, boxes, 0.7)
             
             
+            faces = list()
             
             
             for i in range(boxes.shape[0]):
@@ -301,13 +332,29 @@ with tf.Graph().as_default():
                 x1, y1, x2, y2 = box
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (80,18,236), 2)
                 cv2.rectangle(frame, (x1, y2 - 20), (x2, y2), (80,18,236), cv2.FILLED)
+                
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                # align and resize
+                aligned_face = fa.align(frame, gray, dlib.rectangle(left = x1, top=y1, right=x2, bottom=y2))
+                aligned_face = cv2.resize(aligned_face, (112,112))
+                # write to file
+            
+                
+                aligned_face = aligned_face - 127.5
+                aligned_face = aligned_face * 0.0078125
+                faces.append(aligned_face)
+                    
+                
                 font = cv2.FONT_HERSHEY_DUPLEX
-                text = f"face_l: {labels[i]}"
+                text = f"face: {labels[i]}"
+                
                 cv2.putText(frame, text, (x1 + 6, y2 - 6), font, 0.5, (255, 255, 255), 1)
-            if len(img)>0:
+            
+            
+            if len(faces)>0:
                 predictions = []
         
-                faces = np.array(img)
+                faces = np.array(faces)
                 
                 #embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
                 # calc face embeddings
@@ -324,6 +371,7 @@ with tf.Graph().as_default():
                     diff = np.subtract(saved_embeds, embedding)
                     dist = np.sum(np.square(diff), 1)
                     idx = np.argmin(dist)
+                    print("id number ", idx)
                     if dist[idx] < threshold:
                         predictions.append(names[idx])
                     else:
