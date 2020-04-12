@@ -167,8 +167,8 @@ fa = face_utils.facealigner.FaceAligner(shape_predictor, desiredFaceWidth=112, d
 
 
 
-#comment this whole section if photos are provided
-"""
+#Training from video
+
 for label in dirs:
     for i, fn in enumerate(os.listdir(os.path.join(TRAINING_BASE, label))):
         print(f"start collecting faces from {label}'s data")
@@ -211,9 +211,11 @@ for label in dirs:
             # if video end
             if frame_count == cap.get(cv2.CAP_PROP_FRAME_COUNT):
                 break
+
+
+
 """
-
-
+#Training from Image
 from PIL import Image
 import glob
 for filename in glob.glob('faces/tmp/*jpg'):
@@ -247,7 +249,7 @@ for filename in glob.glob('faces/tmp/*jpg'):
 
 names.extend(['anik','anik','anik','anik','anik','anik','anik','anik','anik',  'araf','araf','araf','araf','araf','araf','araf','araf','araf', 'imran','imran','imran','imran','imran','imran','imran','imran','imran'])
 
-
+"""
 
 
 
